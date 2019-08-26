@@ -5,16 +5,12 @@
  * Docs: https://quasar.dev/app-extensions/development-guide/index-api
  * API: https://github.com/quasarframework/quasar/blob/master/app/lib/app-extension/IndexAPI.js
  */
-const factory = require('./factory')
-const store = require('./store')
-const uuid = require('./uuid')
-
-module.exports = {
-  default: function (api) {
-    //
-  },
-  factory,
-  store,
-  uuid
+module.exports = function (api) {
+  api.extendWebpack((cfg, { isClient, isServer }, api) => {
+    cfg.resolve.alias = {
+      ...cfg.resolve.alias,
+      '@toby.mosque/utils': '@toby.mosque/quasar-app-extension-utils/src/utils',
+    }
+  })
 }
 

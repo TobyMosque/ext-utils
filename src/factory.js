@@ -1,7 +1,7 @@
-const store = require('./store')
 const vuex = require('vuex')
-const mapState = require('./store').mapState
-const { mapActions, mapGetters } =vuex
+const storeUtils = require('./store')
+const { mapActions, mapGetters } = vuex
+const { mapState, mapStoreMutations, mapStoreCollections } = storeUtils
 
 const component = function ({ name, component, render, setup, factories }) {
   const props = component.options.props
@@ -12,7 +12,7 @@ const component = function ({ name, component, render, setup, factories }) {
       set (value) { return this.$emit('input', value) }
     }
   }
-  const methods = Object.keys(component.options.methods).reduce((methods, key) => {
+  const methods = Object.keys(component.options.methods || {}).reduce((methods, key) => {
     methods[key] = function (...args) {
       let root = this.$refs.root
       root[key].invoke(root, args)
@@ -75,7 +75,7 @@ const component = function ({ name, component, render, setup, factories }) {
 
 const getCases = function (text) {
   let cases = {}
-  cases.lower = item.cases.toLowerCase()
+  cases.lower = text.toLowerCase()
   cases.camel = cases.lower.replace(/-([a-z])/g, function (g) { return g[1].toUpperCase(); });
   cases.pascal = cases.camel[0].toUpperCase() + cases.camel.substr(1)
   return cases
@@ -120,42 +120,46 @@ const merge = function ({ name, model, collections, user }) {
 }
 
 const store = function ({ options, ...store }) {
-  let model, collections, conditions
+  let model, collections
   if (options && options.model) {
     model = {
       state: function () {
         return new options.model()
       },
-      mutations: store.mapStoreMutations(options.model)
+      mutations: mapStoreMutations(options.model)
     }
   }
   if (options && options.collections && options.collections.length > 0) {
-    collections = store.mapStoreCollections(collections)
+    collections = mapStoreCollections(options.collections)
   }
-  let store = {}
   store.state = merge({ name: 'state', model, collections, user: store.state })
   store.mutations = merge({ name: 'mutations', model, collections, user: store.mutations })
   store.actions = merge({ name: 'actions', model, collections, user: store.actions })
   store.getters = merge({ name: 'getters', model, collections, user: store.getters })
+  return store
 }
 
 const page = function ({ options, storeModule, moduleName, ...page }) {
   let { preFetch, mounted, destroyed } = page
+
   page.preFetch = function (context) {
     let { store, currentRoute } = context
-    store.registerModule(moduleName, storeModule)
-    return store.dispatch(`${moduleName}/initialize`, currentRoute.params).then(function () {
+    let alreadyInitialized  = !!store.state[moduleName]
+    if (!alreadyInitialized) {
+      store.registerModule(moduleName, storeModule)
+    }
+    return store.dispatch(`${moduleName}/initialize`, currentRoute).then(function () {
       if (preFetch) {
         return preFetch(context)
       }
     })
   }
 
-  let mounted = page.mounted
   page.mounted = function () {
-    if (!this.$store.state[moduleName]) {
-      this.$store.registerModule(moduleName, storeModule, { preserveState: true })
-      this.$store.dispatch(`${moduleName}/initialize`)
+    let alreadyInitialized  = !!this.$store.state[moduleName]
+    this.$store.registerModule(moduleName, storeModule, { preserveState: true })
+    if (!alreadyInitialized) {
+      this.$store.dispatch(`${moduleName}/initialize`, this.$route)
     }
     if (mounted) {
       mounted()
@@ -180,8 +184,9 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   if (options && options.collections) {
     let actions = []
     let getters = []
-    for (let collection in options.collections) {
+    for (let collection of options.collections) {
       let single = getCases(collection.single)
+      let plural = getCases(collection.plural)
       actions.push(`saveOrUpdate${single.pascal}`)
       actions.push(`delete${single.pascal}`)
       getters.push(`${plural.camel}Index`)
@@ -193,9 +198,10 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     }
     page.methods = {
       ...page.methods,
-      ...mapActions(moduleName, getters)
+      ...mapActions(moduleName, actions)
     }
   }
+  return page
 }
 
 module.exports = {
