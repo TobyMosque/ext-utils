@@ -119,6 +119,25 @@ const merge = function ({ name, model, collections, user }) {
   }
 }
 
+const preperValidation = function ({ store, field }) {
+  store.mutations = store.mutations || {}
+  store.mutations[field] = function (state, value) { state[field] = value }
+  
+  store.state = store.state || {}
+  let isFunc = !!store.state.call
+  if (isFunc) {
+    store.state = store.state()
+  }
+  store.state['@@'] = 0
+  if (isFunc) {
+    let obj = store.state
+    store.state = function () {
+      return { ...obj }
+    }
+  }
+}
+
+const validationField = '@@'
 const store = function ({ options, initialize, ...store }) {
   let model, collections
   if (options && options.model) {
@@ -132,6 +151,8 @@ const store = function ({ options, initialize, ...store }) {
   if (options && options.collections && options.collections.length > 0) {
     collections = mapStoreCollections(options.collections)
   }
+
+  preperValidation({ store, field: validationField })
   store.namespaced = true
   store.state = merge({ name: 'state', model, collections, user: store.state })
   store.mutations = merge({ name: 'mutations', model, collections, user: store.mutations }) || {}
@@ -140,7 +161,6 @@ const store = function ({ options, initialize, ...store }) {
   if (initialize) {
     store.actions.initialize = initialize
   }
-  store.mutations['@@'] = function (state, value) { }
   return store
 }
 
@@ -150,10 +170,15 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   let { preFetch, mounted, destroyed } = page
 
   const checkModule = function ({ store, success, failure }) {
-    if (storeModule.mutations['@@']) {
+    if (storeModule.mutations[validationField]) {
       try {
-        store.commit(`${moduleName}/@@`, 0)
-        if (success) success()
+        store.commit(`${moduleName}/${validationField}`, 1)
+        let value = (store.state[moduleName] || {})[validationField]
+        if (value === 1) {
+          if (success) success()
+        } else {
+          if (failure) failure()
+        }
       } catch (err) {
         if (failure) failure()
       }
