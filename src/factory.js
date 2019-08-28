@@ -153,9 +153,9 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     if (storeModule.mutations['@@']) {
       try {
         store.commit(`${moduleName}/@@`, 0)
-        success()
+        if (success) success()
       } catch (err) {
-        failure()
+        if (failure) failure()
       }
     }
   }
@@ -178,10 +178,11 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
 
   page.mounted = function () {
     let alreadyInitialized  = !!this.$store.state[moduleName]
+    let self = this
     checkModule({
       store: this.$store,
       failure () {
-        this.$store.registerModule(moduleName, storeModule, { preserveState: true })
+        self.$store.registerModule(moduleName, storeModule, { preserveState: true })
       }
     })
     if (!alreadyInitialized) {
@@ -193,10 +194,11 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   }
 
   page.destroyed = function () {
+    let self = this
     checkModule({
       store,
       success () {
-        this.$store.unregisterModule(moduleName)
+        self.$store.unregisterModule(moduleName)
       }
     })
     if (destroyed) {
