@@ -144,26 +144,26 @@ const store = function ({ options, initialize, ...store }) {
   return store
 }
 
-const checkModule = function ({ store, storeModule, moduleName, success, failure }) {
-  if (storeModule.mutations['@@']) {
-    try {
-      store.commit(`${moduleName}/@@`, 0)
-      success()
-    } catch (err) {
-      failure()
-    }
-  }
-}
+
 
 const page = function ({ options, storeModule, moduleName, ...page }) {
   let { preFetch, mounted, destroyed } = page
+
+  const checkModule = function ({ store, success, failure }) {
+    if (storeModule.mutations['@@']) {
+      try {
+        store.commit(`${moduleName}/@@`, 0)
+        success()
+      } catch (err) {
+        failure()
+      }
+    }
+  }
 
   page.preFetch = function (context) {
     let { store, currentRoute } = context
     checkModule({
       store,
-      storeModule,
-      moduleName,
       success () {
         store.unregisterModule(moduleName)
       }
@@ -180,8 +180,6 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     let alreadyInitialized  = !!this.$store.state[moduleName]
     checkModule({
       store: this.$store,
-      storeModule,
-      moduleName,
       failure () {
         this.$store.registerModule(moduleName, storeModule, { preserveState: true })
       }
@@ -195,9 +193,12 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   }
 
   page.destroyed = function () {
-    checkModule({ store, storeModule, moduleName, success () {
-      this.$store.unregisterModule(moduleName)
-    } })
+    checkModule({
+      store,
+      success () {
+        this.$store.unregisterModule(moduleName)
+      }
+    })
     if (destroyed) {
       destroyed()
     }
