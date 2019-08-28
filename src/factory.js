@@ -15,7 +15,7 @@ const component = function ({ name, component, render, setup, factories }) {
   const methods = Object.keys(component.options.methods || {}).reduce((methods, key) => {
     methods[key] = function (...args) {
       let root = this.$refs.root
-      root[key].invoke(root, args)
+      root[key].apply(root, args)
     }
     return methods
   }, {})
@@ -119,7 +119,7 @@ const merge = function ({ name, model, collections, user }) {
   }
 }
 
-const store = function ({ options, ...store }) {
+const store = function ({ options, initialize, ...store }) {
   let model, collections
   if (options && options.model) {
     model = {
@@ -132,11 +132,27 @@ const store = function ({ options, ...store }) {
   if (options && options.collections && options.collections.length > 0) {
     collections = mapStoreCollections(options.collections)
   }
+  store.namespaced = true
   store.state = merge({ name: 'state', model, collections, user: store.state })
-  store.mutations = merge({ name: 'mutations', model, collections, user: store.mutations })
-  store.actions = merge({ name: 'actions', model, collections, user: store.actions })
+  store.mutations = merge({ name: 'mutations', model, collections, user: store.mutations }) || {}
+  store.actions = merge({ name: 'actions', model, collections, user: store.actions }) || {}
   store.getters = merge({ name: 'getters', model, collections, user: store.getters })
+  if (initialize) {
+    store.actions.initialize = initialize
+  }
+  store.mutations['@@'] = function (state, value) { }
   return store
+}
+
+const checkModule = function ({ store, storeModule, moduleName, success, failure }) {
+  if (storeModule.mutations['@@']) {
+    try {
+      store.commit(`${moduleName}/@@`, 0)
+      success()
+    } catch (err) {
+      failure()
+    }
+  }
 }
 
 const page = function ({ options, storeModule, moduleName, ...page }) {
@@ -144,11 +160,16 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
 
   page.preFetch = function (context) {
     let { store, currentRoute } = context
-    let alreadyInitialized  = !!store.state[moduleName]
-    if (!alreadyInitialized) {
-      store.registerModule(moduleName, storeModule)
-    }
-    return store.dispatch(`${moduleName}/initialize`, currentRoute).then(function () {
+    checkModule({
+      store,
+      storeModule,
+      moduleName,
+      success () {
+        store.unregisterModule(moduleName)
+      }
+    })
+    store.registerModule(moduleName, storeModule)
+    return store.dispatch(`${moduleName}/initialize`, { route: currentRoute }).then(function () {
       if (preFetch) {
         return preFetch(context)
       }
@@ -157,9 +178,16 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
 
   page.mounted = function () {
     let alreadyInitialized  = !!this.$store.state[moduleName]
-    this.$store.registerModule(moduleName, storeModule, { preserveState: true })
+    checkModule({
+      store: this.$store,
+      storeModule,
+      moduleName,
+      failure () {
+        this.$store.registerModule(moduleName, storeModule, { preserveState: true })
+      }
+    })
     if (!alreadyInitialized) {
-      this.$store.dispatch(`${moduleName}/initialize`, this.$route)
+      this.$store.dispatch(`${moduleName}/initialize`, { route: this.$route })
     }
     if (mounted) {
       mounted()
@@ -167,7 +195,9 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   }
 
   page.destroyed = function () {
-    this.$store.unregisterModule(moduleName)
+    checkModule({ store, storeModule, moduleName, success () {
+      this.$store.unregisterModule(moduleName)
+    } })
     if (destroyed) {
       destroyed()
     }
