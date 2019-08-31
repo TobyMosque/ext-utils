@@ -104,7 +104,7 @@ const merge = function ({ name, model, collections, user }) {
       merged = collections[name].call ? { ...merged, ...collections[name]() } : { ...merged, ...collections[name] }
     }
     if (isFunc) {
-      __merged = merged
+      let __merged = merged
       merged = function () {
         return __merged
       }
@@ -128,7 +128,7 @@ const preperValidation = function ({ store, field }) {
   if (isFunc) {
     store.state = store.state()
   }
-  store.state['@@'] = 0
+  store.state[field] = 0
   if (isFunc) {
     let obj = store.state
     store.state = function () {
@@ -164,10 +164,8 @@ const store = function ({ options, initialize, ...store }) {
   return store
 }
 
-
-
 const page = function ({ options, storeModule, moduleName, ...page }) {
-  let { preFetch, mounted, destroyed } = page
+  let { preFetch, created, destroyed } = page
 
   const checkModule = function ({ store, success, failure }) {
     if (storeModule.mutations[validationField]) {
@@ -186,6 +184,7 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   }
 
   page.preFetch = function (context) {
+    let self = this
     let { store, currentRoute } = context
     checkModule({
       store,
@@ -196,12 +195,12 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     store.registerModule(moduleName, storeModule)
     return store.dispatch(`${moduleName}/initialize`, { route: currentRoute }).then(function () {
       if (preFetch) {
-        return preFetch(context)
+        return preFetch.apply(self, [ context ])
       }
     })
   }
 
-  page.mounted = function () {
+  page.created = function () {
     let alreadyInitialized  = !!this.$store.state[moduleName]
     let self = this
     checkModule({
@@ -213,22 +212,22 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     if (!alreadyInitialized) {
       this.$store.dispatch(`${moduleName}/initialize`, { route: this.$route })
     }
-    if (mounted) {
-      mounted()
+    if (created) {
+      created.apply(self, [])
     }
   }
 
   page.destroyed = function () {
     let self = this
+    if (destroyed) {
+      destroyed.apply(self, [])
+    }
     checkModule({
-      store,
+      store: this.$store,
       success () {
         self.$store.unregisterModule(moduleName)
       }
     })
-    if (destroyed) {
-      destroyed()
-    }
   }
 
   if (options && options.model) {

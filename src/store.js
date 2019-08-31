@@ -104,7 +104,8 @@ const mapStoreCollections = function (collections) {
     }
 
     getters[`${plural.camel}Index`] = function (state) {
-      return state[collection.plural].reduce((map, item, indice) => {
+      let _collection = state[collection.plural] || []
+      return _collection.reduce((map, item, indice) => {
         map.set(item[collection.id], indice)
         return map
       }, new Map())
