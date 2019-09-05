@@ -1,6 +1,7 @@
 const vuex = require('vuex')
 const storeUtils = require('./store')
-const { mapActions, mapGetters } = vuex
+const uuid = require('./uuid')
+const { mapActions } = vuex
 const { mapState, mapStoreMutations, mapStoreCollections } = storeUtils
 
 const component = function ({ name, component, render, setup, factories }) {
@@ -106,7 +107,7 @@ const merge = function ({ name, model, collections, user }) {
     if (isFunc) {
       let __merged = merged
       merged = function () {
-        return __merged
+        return JSON.parse(JSON.stringify(__merged))
       }
     }
     return merged
@@ -165,14 +166,15 @@ const store = function ({ options, initialize, ...store }) {
 }
 
 const page = function ({ options, storeModule, moduleName, ...page }) {
-  let { preFetch, created, destroyed } = page
+  let { preFetch, mounted, destroyed } = page
 
   const checkModule = function ({ store, success, failure }) {
     if (storeModule.mutations[validationField]) {
       try {
-        store.commit(`${moduleName}/${validationField}`, 1)
+        let comb = uuid.comb()
+        store.commit(`${moduleName}/${validationField}`, comb)
         let value = (store.state[moduleName] || {})[validationField]
-        if (value === 1) {
+        if (value === comb) {
           if (success) success()
         } else {
           if (failure) failure()
@@ -183,51 +185,53 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     }
   }
 
-  page.preFetch = function (context) {
-    let self = this
-    let { store, currentRoute } = context
-    checkModule({
-      store,
-      success () {
-        store.unregisterModule(moduleName)
-      }
-    })
-    store.registerModule(moduleName, storeModule)
-    return store.dispatch(`${moduleName}/initialize`, { route: currentRoute }).then(function () {
-      if (preFetch) {
-        return preFetch.apply(self, [ context ])
-      }
-    })
-  }
-
-  page.created = function () {
-    let alreadyInitialized  = !!this.$store.state[moduleName]
-    let self = this
-    checkModule({
-      store: this.$store,
-      failure () {
-        self.$store.registerModule(moduleName, storeModule, { preserveState: true })
-      }
-    })
-    if (!alreadyInitialized) {
-      this.$store.dispatch(`${moduleName}/initialize`, { route: this.$route })
+  if (storeModule) {
+    page.preFetch = function (context) {
+      let self = this
+      let { store, currentRoute } = context
+      checkModule({
+        store,
+        success () {
+          store.unregisterModule(moduleName)
+        }
+      })
+      store.registerModule(moduleName, storeModule)
+      return store.dispatch(`${moduleName}/initialize`, { route: currentRoute }).then(function () {
+        if (preFetch) {
+          return preFetch.apply(self, [ context ])
+        }
+      })
     }
-    if (created) {
-      created.apply(self, [])
-    }
-  }
-
-  page.destroyed = function () {
-    let self = this
-    if (destroyed) {
-      destroyed.apply(self, [])
-    }
-    checkModule({
-      store: this.$store,
-      success () {
-        self.$store.unregisterModule(moduleName)
+  
+    page.mounted = function () {
+      let alreadyInitialized  = !!this.$store.state[moduleName]
+      let self = this
+      checkModule({
+        store: this.$store,
+        failure () {
+          self.$store.registerModule(moduleName, storeModule, { preserveState: true })
+        }
+      })
+      if (!alreadyInitialized) {
+        this.$store.dispatch(`${moduleName}/initialize`, { route: this.$route })
       }
-    })
+      if (mounted) {
+        mounted.apply(self, [])
+      }
+    }
+  
+    page.destroyed = function () {
+      let self = this
+      if (destroyed) {
+        destroyed.apply(self, [])
+      }
+      checkModule({
+        store: this.$store,
+        success () {
+          self.$store.unregisterModule(moduleName)
+        }
+      })
+    }
   }
 
   if (options && options.model) {
@@ -240,18 +244,34 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
 
   if (options && options.collections) {
     let actions = []
-    let getters = []
+    let getters = {}
     for (let collection of options.collections) {
       let single = getCases(collection.single)
       let plural = getCases(collection.plural)
       actions.push(`saveOrUpdate${single.pascal}`)
       actions.push(`delete${single.pascal}`)
-      getters.push(`${plural.camel}Index`)
-      getters.push(`${single.camel}ById`)
+      getters[`${plural.camel}Index`] = function () {
+        let getter = this.$store.getters[`${moduleName}/${plural.camel}Index`]
+        if (getter) {
+          return getter
+        } else {
+          let state = this.$store.state[moduleName]
+          return storeModule.getters[`${plural.camel}Index`](state, this)
+        }
+      }
+      getters[`${single.camel}ById`] = function () {
+        let getter = this.$store.getters[`${moduleName}/${single.camel}ById`]
+        if (getter) {
+          return getter
+        } else {
+          let state = this.$store.state[moduleName]
+          return storeModule.getters[`${single.camel}ById`](state, this)
+        }
+      }
     }
     page.computed = {
       ...page.computed,
-      ...mapGetters(moduleName, getters)
+      ...getters
     }
     page.methods = {
       ...page.methods,

@@ -13,7 +13,7 @@ const comb = function (date) {
 const extract = function (comb) {
   let text = comb.replace(/-/g, '').substr(0, 12)
   let time = parseInt(text, 16)
-  return new Date()
+  return new Date(time)
 }
 
 module.exports = {
