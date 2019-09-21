@@ -4,9 +4,15 @@ const uuid = require('./uuid')
 const { mapActions } = vuex
 const { mapState, mapStoreMutations, mapStoreCollections } = storeUtils
 
-const component = function ({ name, component, render, setup, factories }) {
+const component = function ({ name, component, render, setup, create, factories }) {
   const props = component.options.props
   const computed = {}
+  if (!create) {
+    create = function ({ h, component, options }) {
+      return h(component, options)
+    }
+  }
+
   if (props.value) {
     computed.__value = {
       get () { return this.value },
@@ -63,9 +69,10 @@ const component = function ({ name, component, render, setup, factories }) {
       }
 
       for (let render of renders) {
-        render({ h, self, options })
+        render({ self, options })
       }
-      return h(component, options)
+
+      return create({ h, component, options, self })
     }
   }
   for (let setup of setups) {
