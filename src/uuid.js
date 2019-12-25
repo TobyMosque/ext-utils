@@ -1,5 +1,10 @@
 const uid = require('quasar').uid
 
+/**
+ * creates a comb (combined time-uuid)
+ * @param {*} date - date used to create the COMB
+ * @returns {String} returns a combined time-uuid (comb)
+ */
 const comb = function (date) {
   if (!date) {
     date = new Date()
@@ -10,6 +15,11 @@ const comb = function (date) {
   return uuid.replace(uuid.slice(0, 13), comb)
 }
 
+/**
+ * extract the date part of the comb
+ * @param {String} comb a combined time-uuid (comb)
+ * @returns {Date} the date part of the comb
+ */
 const extract = function (comb) {
   let text = comb.replace(/-/g, '').substr(0, 12)
   let time = parseInt(text, 16)

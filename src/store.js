@@ -1,10 +1,16 @@
 const vueModule = require('vue')
 const Vue = vueModule.set ? vueModule : vueModule.default
 
-const mapState = function (module, properties) {
+/**
+ * maps all fields to a computed-like object who getters access the state and the setters do mutations.
+ * @param {String} module - the module name
+ * @param {String[] | Object} fields - fields can be an array of strings or a object where the keys and values are strings. e.g:` ['text', 'number', 'list']` or `{ text: 'text', number: 'number', collection: 'list' }`
+ * @returns {Object} 
+ */
+const mapState = function (module, fields) {
   var props = {}
-  if (Array.isArray(properties)) {
-    properties.forEach(property => {
+  if (Array.isArray(fields)) {
+    fields.forEach(property => {
       props[property] = {
         get () {
           return this.$store.state[module][property]
@@ -15,8 +21,8 @@ const mapState = function (module, properties) {
       }
     })
   } else {
-    Object.keys(properties).forEach(key => {
-      var property = properties[key]
+    Object.keys(fields).forEach(key => {
+      var property = fields[key]
       props[key] = {
         get () { return this.$store.state[module][property] },
         set (value) { this.$store.commit(`${module}/${property}`, value) }
@@ -26,10 +32,16 @@ const mapState = function (module, properties) {
   return props
 }
 
-const mapGetters = function (module, properties) {
+/**
+ * maps all fields to a computed-like object who getters access the getters and the setters do mutations.
+ * @param {String} module - the module name
+ * @param {String[] | Object} fields - fields can be an array of strings or a object where the keys and values are strings. e.g:` ['text', 'number', 'list']` or `{ text: 'text', number: 'number', collection: 'list' }`
+ * @returns {Object} 
+ */
+const mapGetters = function (module, fields) {
   var props = {}
-  if (Array.isArray(properties)) {
-    properties.forEach(property => {
+  if (Array.isArray(fields)) {
+    fields.forEach(property => {
       props[property] = {
         get () {
           return this.$store.getters[`${module}/${property}`]
@@ -40,8 +52,8 @@ const mapGetters = function (module, properties) {
       }
     })
   } else {
-    Object.keys(properties).forEach(key => {
-      var property = properties[key]
+    Object.keys(fields).forEach(key => {
+      var property = fields[key]
       props[key] = {
         get () { return this.$store.getters[`${module}/${property}`] },
         set (value) { this.$store.commit(`${module}/${property}`, value) }
@@ -59,8 +71,18 @@ const getCases = function (text) {
   return cases
 }
 
-const mapStoreMutations = function (Model) {
+/**
+ * maps all classes fields to a mutations-like object.
+ * @param {*} Model - class used to model the mutations object 
+ * @param {String} privatePrefix - the prefix of the private fields used by the getters and setters
+ * @returns {Object} a object with the mapped mutations
+ */
+const mapStoreMutations = function (Model, privatePrefix) {
   const keys = Object.keys(new Model())
+  const prefix = privatePrefix
+  if (prefix) {
+    keys = keys.map(key => key.startsWith(prefix) ? key.substr(prefix.length) : key)
+  }
   const mutations = keys.reduce((mutations, key) => {
     mutations[key] = function (state, value) {
       Vue.set(state, key, value)
@@ -70,6 +92,19 @@ const mapStoreMutations = function (Model) {
   return mutations
 }
 
+/**
+ * The complete Triforce, or one or more components of the Triforce.
+ * @typedef {Object} CollectionItem
+ * @property {String} single - the single form of the collection (item, person, job)
+ * @property {String} plural - the plural form of the collection (list, people, jobs), would be the same as in the state
+ * @property {String} id - the name of the id field of the object in the collection
+ */
+
+/**
+ * Create `mutations` (create, update, delete), `actions` (upsert, delete) and `getters` (index, getById) related to array fields.
+ * @param {CollectionItem[]} collections - an array of objects that describes your collection
+ * @returns {Object} a object with the mapped mutations, actions and getters
+ */
 const mapStoreCollections = function (collections) {
   let mutations = {}
   let actions = {}
