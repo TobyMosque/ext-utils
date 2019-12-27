@@ -95,7 +95,7 @@ const component = function ({ name, component, render, setup, createElement, fac
       }
 
       for (let render of renders) {
-        render({ h, self, options })
+        render({ self, options })
       }
       return createElement(h, component, options)
     }
