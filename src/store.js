@@ -74,15 +74,10 @@ const getCases = function (text) {
 /**
  * maps all classes fields to a mutations-like object.
  * @param {*} Model - class used to model the mutations object 
- * @param {String} privatePrefix - the prefix of the private fields used by the getters and setters
  * @returns {Object} a object with the mapped mutations
  */
-const mapStoreMutations = function (Model, privatePrefix) {
+const mapStoreMutations = function (Model) {
   const keys = Object.keys(new Model())
-  const prefix = privatePrefix
-  if (prefix) {
-    keys = keys.map(key => key.startsWith(prefix) ? key.substr(prefix.length) : key)
-  }
   const mutations = keys.reduce((mutations, key) => {
     mutations[key] = function (state, value) {
       Vue.set(state, key, value)
