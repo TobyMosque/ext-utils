@@ -43,7 +43,7 @@ const component = function ({ name, component, render, setup, createElement, fac
   const methods = Object.keys(component.options.methods || {}).reduce((methods, key) => {
     methods[key] = function (...args) {
       let root = this.$refs.root
-      root[key].apply(root, args)
+      return root[key].apply(root, args)
     }
     return methods
   }, {})
