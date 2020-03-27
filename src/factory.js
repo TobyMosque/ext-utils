@@ -1,8 +1,10 @@
-const vuex = require('vuex')
+
+const vueModule = require('vue')
 const storeUtils = require('./store')
 const uuid = require('./uuid')
-const { mapActions } = vuex
-const { mapState, mapStoreMutations, mapStoreCollections } = storeUtils
+const common = require('./_common')
+const { mapState, mapStoreMutations, mapStoreCollections, mapStoreComplexTypes, getCollectionPrefixes } = storeUtils
+const Vue = vueModule.set ? vueModule : vueModule.default
 
 /**
  * The complete Triforce, or one or more components of the Triforce.
@@ -17,6 +19,16 @@ const { mapState, mapStoreMutations, mapStoreCollections } = storeUtils
  * @property {String} single - the single form of the collection (item, person, job)
  * @property {String} plural - the plural form of the collection (list, people, jobs), would be the same as in the state
  * @property {String} id - the name of the id field of the object in the collection
+ * @property {Object} type - the type of the objects in the array
+ * @property {String} [upsertPrefix='saveOrUpdate'] - prefix of the save or update action
+ * @property {String} [deletePrefix='delete'] - prefix of the delete action
+ */
+
+ /**
+ * The complete Triforce, or one or more components of the Triforce.
+ * @typedef {Object} ComplexType
+ * @property {String} name - the name of the field
+ * @property {Object} type - the type of the object
  */
 
 /**
@@ -106,15 +118,43 @@ const component = function ({ name, component, render, setup, createElement, fac
   return wrapper
 }
 
-const getCases = function (text) {
-  let cases = {}
-  cases.lower = text.toLowerCase()
-  cases.camel = cases.lower.replace(/-([a-z])/g, function (g) { return g[1].toUpperCase(); });
-  cases.pascal = cases.camel[0].toUpperCase() + cases.camel.substr(1)
-  return cases
+const wrapperComponent = component
+const getCases = common.getCases
+
+/**
+ * @param {String} name
+ * @param {Object} component
+ * @param {Object} brand
+ * @param {String|Object|Array} brand.style
+ * @param {String|Object|Array} brand.class
+ * @param {Object} param.props
+ */
+const reBrand = function (name, component, brand) {
+  var keys = Object.keys(brand.props || {})
+  Vue.component(name, wrapperComponent({
+    name: component.name,
+    component,
+    render ({ self, options }) {
+      if (brand.style) {
+        options.style = brand.style
+      }
+      if (brand.class) {
+        options.class = brand.class
+      }
+      for (const prop of keys) {
+        options.props[prop] = options.props[prop] === undefined ? brand.props[prop] : options.props[prop]
+      }
+      return null
+    },
+    setup ({ component }) {
+      for (const prop of keys) {
+        component.props[prop].default = () => undefined
+      }
+    }
+  }))
 }
 
-const merge = function ({ name, model, collections, user }) {
+const merge = function ({ name, model, collections, complexTypes, user }) {
   let conditions = [
     model && model[name],
     collections && collections[name],
@@ -136,6 +176,10 @@ const merge = function ({ name, model, collections, user }) {
       isFunc = isFunc || collections[name].call
       merged = collections[name].call ? { ...merged, ...collections[name]() } : { ...merged, ...collections[name] }
     }
+    if (complexTypes && complexTypes[name]) {
+      isFunc = isFunc || complexTypes[name].call
+      merged = complexTypes[name].call ? { ...merged, ...complexTypes[name]() } : { ...merged, ...complexTypes[name] }
+    }
     if (isFunc) {
       let __merged = merged
       merged = function () {
@@ -147,6 +191,8 @@ const merge = function ({ name, model, collections, user }) {
     return model[name]
   } else if (collections && collections[name]) {
     return collections[name]
+  } else if (complexTypes && complexTypes[name]) {
+    return complexTypes[name]
   } else {
     return user
   }
@@ -177,13 +223,14 @@ const validationField = '@@'
  * @param {Object} param.options - options used to generate the page
  * @param {Object} param.options.model - class used to model the mutations object
  * @param {CollectionItem[]} param.options.collections - an array of objects that describes your collection
+ * @param {ComplexType[]} param.options.collections - an array of objects that describes your collection
  * @param {String} param.state - module's state, that will be merged intro the final module
  * @param {String} param.mutations - module's mutations, that will be merged intro the final module
  * @param {String} param.actions - module's actions, that will be merged intro the final module
  * @param {String} param.getters - module's getters, that will be merged intro the final module
  */
 const store = function ({ options, initialize, ...store }) {
-  let model, collections
+  let model, collections, complexTypes
   if (options && options.model) {
     model = {
       state: function () {
@@ -195,15 +242,18 @@ const store = function ({ options, initialize, ...store }) {
   if (options && options.collections && options.collections.length > 0) {
     collections = mapStoreCollections(options.collections)
   }
+  if (options && options.complexTypes && options.complexTypes.length > 0) {
+    complexTypes = mapStoreComplexTypes(options.complexTypes)
+  }
 
   preperValidation({ store, field: validationField })
   store.namespaced = true
-  store.state = merge({ name: 'state', model, collections, user: store.state })
-  store.mutations = merge({ name: 'mutations', model, collections, user: store.mutations }) || {}
-  store.actions = merge({ name: 'actions', model, collections, user: store.actions }) || {}
-  store.getters = merge({ name: 'getters', model, collections, user: store.getters })
-  if (initialize) {
-    store.actions.initialize = initialize
+  store.state = merge({ name: 'state', model, collections, complexTypes,  user: store.state })
+  store.mutations = merge({ name: 'mutations', model, collections, complexTypes, user: store.mutations }) || {}
+  store.actions = merge({ name: 'actions', model, collections, complexTypes, user: store.actions }) || {}
+  store.getters = merge({ name: 'getters', model, collections, complexTypes, user: store.getters })
+  if (!store.actions.initialize) {
+    store.actions.initialize = initialize || function (context, values) {}
   }
   return store
 }
@@ -222,17 +272,18 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
 
   const checkModule = function ({ store, success, failure }) {
     if (storeModule.mutations[validationField]) {
-      try {
-        let comb = uuid.comb()
-        store.commit(`${moduleName}/${validationField}`, comb)
+      let comb = uuid.comb()
+      let mutationName = `${moduleName}/${validationField}`
+      if (store._mutations[mutationName]) {
+        store.commit(mutationName, comb)
         let value = (store.state[moduleName] || {})[validationField]
         if (value === comb) {
           if (success) success()
         } else {
           if (failure) failure()
         }
-      } catch (err) {
-        if (failure) failure()
+      } else if (failure) {
+        failure()
       }
     }
   }
@@ -299,15 +350,29 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   }
 
   if (options && options.collections) {
-    let actions = []
+    let actions = {}
     let getters = {}
+    let defaultPrefixes = getCollectionPrefixes()
+    let hasTypes = options.collections.some(collection => collection.type !== void 0)
+    if (hasTypes) {
+      actions.setPropertyOfACollectionItem = function ({ id, collection, property, value }) {
+        return this.$store.dispatch(`${moduleName}/setPropertyOfACollectionItem`, { id, collection, property, value })
+      }
+    }
+
     for (let collection of options.collections) {
       let single = getCases(collection.single)
       let plural = getCases(collection.plural)
-      actions.push(`saveOrUpdate${single.pascal}`)
-      actions.push(`delete${single.pascal}`)
+      let upsertPrefix = collection.upsertPrefix || defaultPrefixes.upsertPrefix
+      let deletePrefix = collection.deletePrefix || defaultPrefixes.deletePrefix
+      actions[`${upsertPrefix}${single.pascal}`] = function (item) {
+        return this.$store.dispatch(`${upsertPrefix}${single.pascal}`, item)
+      }
+      actions[`${deletePrefix}${single.pascal}`] = function (id) {
+        return this.$store.dispatch(`${moduleName}/${deletePrefix}${single.pascal}`, id)
+      }
       getters[`${plural.camel}Index`] = function () {
-        let getter = this.$store.getters[`${moduleName}/${plural.camel}Index`]
+        let getter = this.$store.getters[`${moduleName}/${moduleName}/${plural.camel}Index`]
         if (getter) {
           return getter
         } else {
@@ -324,6 +389,17 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
           return storeModule.getters[`${single.camel}ById`](state, this)
         }
       }
+      if (collection.type !== void 0) {
+        let properties = Object.keys(new collection.type())
+        for (const property of properties) {
+          let name = getCases(property)
+          let conjunction = single.pascal.match(/^[aeiou].*/i) ? 'An' : 'A'
+          let actionName = `set${name.pascal}Of${conjunction}${single.pascal}`
+          actions[actionName] = function ({ id, value }) {
+            return this.$store.dispatch(`${moduleName}/${actionName}`, { id, collection: collection.plural, property, value })
+          }
+        }
+      }
     }
     page.computed = {
       ...page.computed,
@@ -331,13 +407,38 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     }
     page.methods = {
       ...page.methods,
-      ...mapActions(moduleName, actions)
+      ...actions
+    }
+  }
+  if (options && options.complexTypes) {
+    let getters = {}
+    for (let complexType of options.complexTypes) {
+      let properties = Object.keys(new complexType.type())
+      let typeName = getCases(complexType.name)
+      for (const property of properties) {
+        const name = getCases(property)
+        const camelName = `${name.camel}Of${typeName.pascal}`
+        const pascalName = `set${name.pascal}Of${typeName.pascal}`
+        getters[camelName] = {
+          get () {
+            return this.$store.state[moduleName][complexType.name][property]
+          },
+          set (value) {
+            this.$store.commit(`${moduleName}/${pascalName}`, value)
+          }
+        }
+      }
+    }
+    page.computed = {
+      ...page.computed,
+      ...getters
     }
   }
   return page
 }
 
 module.exports = {
+  reBrand,
   component,
   store,
   page
