@@ -11,6 +11,6 @@ const getCases = function (text) {
   return cases
 }
 
-export {
+module.exports = {
   getCases
 }

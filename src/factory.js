@@ -127,7 +127,7 @@ const getCases = common.getCases
  * @param {Object} brand
  * @param {String|Object|Array} brand.style
  * @param {String|Object|Array} brand.class
- * @param {Object} param.props
+ * @param {Object} brand.props
  */
 const reBrand = function (name, component, brand) {
   var keys = Object.keys(brand.props || {})
@@ -274,7 +274,7 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     if (storeModule.mutations[validationField]) {
       let comb = uuid.comb()
       let mutationName = `${moduleName}/${validationField}`
-      if (store._mutations[mutationName]) {
+      if (store.state[moduleName] && store._mutations[mutationName]) {
         store.commit(mutationName, comb)
         let value = (store.state[moduleName] || {})[validationField]
         if (value === comb) {
@@ -316,11 +316,14 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
       checkModule({
         store: this.$store,
         failure () {
-          self.$store.registerModule(moduleName, storeModule, { preserveState: true })
+          self.$store.registerModule(moduleName, storeModule, { preserveState: alreadyInitialized })
         }
       })
       if (!alreadyInitialized) {
-        this.$store.dispatch(`${moduleName}/initialize`, { route: this.$route })
+        this.$store.dispatch(`${moduleName}/initialize`, {
+          route: this.$route,
+          next: this.$router.replace.bind(this.$router)
+        })
       }
       if (created) {
         created.apply(self, [])
