@@ -369,7 +369,7 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
       let upsertPrefix = collection.upsertPrefix || defaultPrefixes.upsertPrefix
       let deletePrefix = collection.deletePrefix || defaultPrefixes.deletePrefix
       actions[`${upsertPrefix}${single.pascal}`] = function (item) {
-        return this.$store.dispatch(`${upsertPrefix}${single.pascal}`, item)
+        return this.$store.dispatch(`${moduleName}/${upsertPrefix}${single.pascal}`, item)
       }
       actions[`${deletePrefix}${single.pascal}`] = function (id) {
         return this.$store.dispatch(`${moduleName}/${deletePrefix}${single.pascal}`, id)
