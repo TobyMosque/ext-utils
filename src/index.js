@@ -13,7 +13,9 @@ module.exports = function (api) {
     }
   })
   api.extendQuasarConf((conf) => {
-    conf.build.transpileDependencies.push(/@toby.mosque[\\/]quasar-app-extension-utils[\\/]src/)
+    if (api.prompts.transpile) {
+      conf.build.transpileDependencies.push(/@toby.mosque[\\/]quasar-app-extension-utils[\\/]src/)
+    }
   })
 }
 
