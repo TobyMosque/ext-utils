@@ -1,12 +1,13 @@
 {
-  "name": "@toby.mosque/quasar-app-extension-utils",
-  "version": "1.0.0-beta.60",
+  "name": "@toby.mosque/utils",
+  "version": "1.0.0-beta.1",
   "description": "Quasar's utility methods by Tobias Mesquita",
   "author": "Tobias de Abreu Mesquita <tobias.mesquita@gmail.com>",
   "license": "MIT",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"No test specified\" && exit 0"
+    "test": "echo \"No test specified\" && exit 0",
+    "prepublish": "webpack"
   },
   "repository": {
     "type": "git",

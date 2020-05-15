@@ -1,6 +1,5 @@
-const vueModule = require('vue')
-const common = require('./_common')
-const Vue = vueModule.set ? vueModule : vueModule.default
+import Vue from 'vue'
+import { getCases } from './_common'
 
 const defaultPrefixes = {
   upsertPrefix: 'saveOrUpdate',
@@ -77,8 +76,6 @@ const mapGetters = function (module, fields) {
   }
   return props
 }
-
-const getCases = common.getCases
 
 /**
  * maps all classes fields to a mutations-like object.
@@ -336,7 +333,19 @@ const mapComplexTypeState = function (module, { name, type }) {
   }
 }
 
-module.exports = {
+export {
+  getCollectionPrefixes,
+  setCollectionPrefixes,
+  mapState,
+  mapGetters,
+  mapStoreMutations,
+  mapStoreCollections,
+  mapStoreComplexTypes,
+  mapCollectionItemState,
+  mapComplexTypeState
+}
+
+export default {
   getCollectionPrefixes,
   setCollectionPrefixes,
   mapState,

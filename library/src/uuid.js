@@ -1,4 +1,4 @@
-const uid = require('quasar').uid
+import { uid } from 'quasar'
 
 /**
  * creates a comb (combined time-uuid)
@@ -26,7 +26,12 @@ const extract = function (comb) {
   return new Date(time)
 }
 
-module.exports = {
+export {
+  comb,
+  extract
+}
+
+export default {
   comb,
   extract
 }

@@ -11,6 +11,10 @@ const getCases = function (text) {
   return cases
 }
 
-module.exports = {
+export {
+  getCases
+}
+
+export default {
   getCases
 }

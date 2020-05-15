@@ -9,6 +9,10 @@ const sleep = function (delay) {
   })
 }
 
-module.exports = {
+export {
+  sleep
+}
+
+export default {
   sleep
 }

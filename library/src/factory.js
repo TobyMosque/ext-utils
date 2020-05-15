@@ -1,10 +1,8 @@
 
-const vueModule = require('vue')
-const storeUtils = require('./store')
-const uuid = require('./uuid')
-const common = require('./_common')
-const { mapState, mapStoreMutations, mapStoreCollections, mapStoreComplexTypes, getCollectionPrefixes } = storeUtils
-const Vue = vueModule.set ? vueModule : vueModule.default
+import Vue from 'vue'
+import { mapState, mapStoreMutations, mapStoreCollections, mapStoreComplexTypes, getCollectionPrefixes } from './store'
+import uuid from './uuid'
+import { getCases, getPeer } from './_common'
 
 /**
  * The complete Triforce, or one or more components of the Triforce.
@@ -118,8 +116,7 @@ const component = function ({ name, component, render, setup, createElement, fac
   return wrapper
 }
 
-const wrapperComponent = component
-const getCases = common.getCases
+const __component = component
 
 /**
  * @param {String} name
@@ -131,7 +128,7 @@ const getCases = common.getCases
  */
 const reBrand = function (name, component, brand) {
   var keys = Object.keys(brand.props || {})
-  Vue.component(name, wrapperComponent({
+  Vue.component(name, __component({
     name: component.name,
     component,
     render ({ self, options }) {
@@ -320,10 +317,11 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
         }
       })
       if (!alreadyInitialized) {
-        this.$store.dispatch(`${moduleName}/initialize`, {
+        const args = this.$route ? {
           route: this.$route,
           next: this.$router.replace.bind(this.$router)
-        })
+        } : undefined
+        this.$store.dispatch(`${moduleName}/initialize`, args)
       }
       if (created) {
         created.apply(self, [])
@@ -440,7 +438,14 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   return page
 }
 
-module.exports = {
+export {
+  reBrand,
+  component,
+  store,
+  page
+}
+
+export default {
   reBrand,
   component,
   store,
