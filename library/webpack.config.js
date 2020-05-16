@@ -1,4 +1,5 @@
 const path = require('path')
+const nodeExternals = require('webpack-node-externals')
 
 module.exports = [
   {
@@ -7,8 +8,8 @@ module.exports = [
       app: ["./src/entry.umd.js"]
     },
     output: {
-      path: path.resolve(__dirname, "./build"),
-      filename: "tm-utils.umd.js"
+      path: path.resolve(__dirname, "./dist"),
+      filename: "index.umd.js"
     },
     resolve: {
       alias: {
@@ -16,5 +17,17 @@ module.exports = [
         'vue': path.join(__dirname, './umd-alias/vue.js')
       }
     }
+  },
+  {
+    target: "node",
+    entry: {
+      app: ["./src/index.js"]
+    },
+    output: {
+      path: path.resolve(__dirname, "./dist"),
+      filename: "index.common.js",
+      libraryTarget: 'commonjs2'
+    },
+    externals: [nodeExternals()]
   }
 ]

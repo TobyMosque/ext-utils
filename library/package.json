@@ -1,10 +1,10 @@
 {
   "name": "@toby.mosque/utils",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.7",
   "description": "Quasar's utility methods by Tobias Mesquita",
   "author": "Tobias de Abreu Mesquita <tobias.mesquita@gmail.com>",
   "license": "MIT",
-  "main": "src/index.js",
+  "main": "dist/index.common.js",
   "scripts": {
     "test": "echo \"No test specified\" && exit 0",
     "prepublish": "webpack"
@@ -19,5 +19,10 @@
     "node": ">= 8.9.0",
     "npm": ">= 5.6.0",
     "yarn": ">= 1.6.0"
+  },
+  "devDependencies": {
+    "quasar": "^1.11.2",
+    "vue": "^2.6.11",
+    "webpack-node-externals": "^1.7.2"
   }
 }
