@@ -6,15 +6,10 @@
  * API: https://github.com/quasarframework/quasar/blob/master/app/lib/app-extension/IndexAPI.js
  */
 module.exports = function (api) {
-  api.extendWebpack((cfg, { isClient, isServer }, api) => {
-    cfg.resolve.alias = {
-      ...cfg.resolve.alias,
-      '@toby.mosque/utils': '@toby.mosque/quasar-app-extension-utils/src/utils',
-    }
-  })
   api.extendQuasarConf((conf) => {
     if (api.prompts.transpile) {
       conf.build.transpileDependencies.push(/@toby.mosque[\\/]quasar-app-extension-utils[\\/]src/)
+      conf.build.transpileDependencies.push(/@toby.mosque[\\/]utils[\\/]src/)
     }
   })
 }
