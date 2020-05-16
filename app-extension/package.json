@@ -1,10 +1,6 @@
 {
   "name": "@toby.mosque/quasar-app-extension-utils",
-<<<<<<< HEAD:package.json
-  "version": "1.0.0-beta.61",
-=======
   "version": "1.0.1-beta.1",
->>>>>>> 43bdb32d97246635e017e8fddc00084611b725d7:app-extension/package.json
   "description": "Quasar's utility methods by Tobias Mesquita",
   "author": "Tobias de Abreu Mesquita <tobias.mesquita@gmail.com>",
   "license": "MIT",
