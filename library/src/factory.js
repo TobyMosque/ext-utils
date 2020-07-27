@@ -265,7 +265,7 @@ const store = function ({ options, initialize, ...store }) {
  * @param {String} param.moduleName - the prefix of the private fields used by the getters and setters
  */
 const page = function ({ options, storeModule, moduleName, ...page }) {
-  let { preFetch, created, destroyed } = page
+  let { preFetch, created, mounted, destroyed } = page
 
   const checkModule = function ({ store, success, failure }) {
     if (storeModule.mutations[validationField]) {
@@ -286,6 +286,7 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
   }
 
   if (storeModule) {
+    let initialize
     page.preFetch = function (context) {
       let self = this
       let { store, currentRoute, previousRoute, redirect } = context
@@ -308,7 +309,6 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     }
   
     page.created = function () {
-      let alreadyInitialized  = !!this.$store.state[moduleName]
       let self = this
       checkModule({
         store: this.$store,
@@ -316,6 +316,13 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
           self.$store.registerModule(moduleName, storeModule, { preserveState: alreadyInitialized })
         }
       })
+      if (created) {
+        created.apply(self, [])
+      }
+    }
+
+    page.mounted = function () {
+      let alreadyInitialized  = !!this.$store.state[moduleName]
       if (!alreadyInitialized) {
         const args = this.$route ? {
           route: this.$route,
@@ -323,8 +330,8 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
         } : undefined
         this.$store.dispatch(`${moduleName}/initialize`, args)
       }
-      if (created) {
-        created.apply(self, [])
+      if (mounted) {
+        mounted.apply(self, [])
       }
     }
   

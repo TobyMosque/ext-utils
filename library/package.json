@@ -1,13 +1,13 @@
 {
   "name": "@toby.mosque/utils",
-  "version": "1.0.0-beta.8",
+  "version": "1.0.0-beta.12",
   "description": "Quasar's utility methods by Tobias Mesquita",
   "author": "Tobias de Abreu Mesquita <tobias.mesquita@gmail.com>",
   "license": "MIT",
-  "main": "dist/index.common.js",
+  "main": "dist/app.js",
   "scripts": {
     "test": "echo \"No test specified\" && exit 0",
-    "prepublish": "webpack"
+    "prepublish": "webpack -p"
   },
   "repository": {
     "type": "git",

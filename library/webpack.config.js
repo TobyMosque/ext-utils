@@ -18,18 +18,19 @@ const webConfig = {
   }
 }
 
-const dev = process.env.NODE_ENV === 'development'
+// production => #source-map
+// development => #cheap-module-eval-source-map
 const nodeConfig = {
   target: "node",
-  mode: dev ? 'development' : 'production',
-  devtool: dev ? '#cheap-module-eval-source-map' : '#source-map',
+  mode: 'production',
+  devtool: '#source-map',
   entry: {
     app: ["./src/index.js"]
   },
   output: {
     path: path.resolve(__dirname, "./dist"),
-    filename: '[name]${fileHash}.js',
-    chunkFilename: '[name]${chunkHash}.js',
+    filename: '[name].js',
+    chunkFilename: '[name].js',
     libraryTarget: 'commonjs2'
   },
   externals: [nodeExternals()]
