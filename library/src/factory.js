@@ -119,17 +119,36 @@ const component = function ({ name, component, render, setup, createElement, fac
 const __component = component
 
 /**
- * @param {String} name
+ * @param {String|Object} options
  * @param {Object} component
  * @param {Object} brand
  * @param {String|Object|Array} brand.style
  * @param {String|Object|Array} brand.class
  * @param {Object} brand.props
  */
-const reBrand = function (name, component, brand) {
+const reBrand = function (options, component, brand) {
+  let name = '', cname = '', register = null
+  if (typeof options === 'object') {
+    name = options.name
+    cname = options.cname
+    component = options.component
+    brand = options.brand
+    register = options.register
+  } else {
+    name = options
+  }
+  if (!cname) {
+    cname = getCases(name).pascal
+  }
+  if (!register) {
+    register = function (name, component) {
+      Vue.component(name, component)
+    }
+  }
+
   var keys = Object.keys(brand.props || {})
-  Vue.component(name, __component({
-    name: component.name,
+  register(name, __component({
+    name: cname || component.name,
     component,
     render ({ self, options }) {
       if (brand.style) {
@@ -195,16 +214,21 @@ const merge = function ({ name, model, collections, complexTypes, user }) {
   }
 }
 
-const preperValidation = function ({ store, field }) {
+const preperValidation = function ({ store, fields }) {
   store.mutations = store.mutations || {}
-  store.mutations[field] = function (state, value) { state[field] = value }
+  const fieldKeys = Object.keys(fields)
+  for (const field of fieldKeys) {
+    store.mutations[field] = function (state, value) { state[field] = value }
+  }
   
   store.state = store.state || {}
   let isFunc = !!store.state.call
   if (isFunc) {
     store.state = store.state()
   }
-  store.state[field] = 0
+  for (const field of fieldKeys) {
+    store.state[field] = fields[field]
+  }
   if (isFunc) {
     let obj = store.state
     store.state = function () {
@@ -214,6 +238,7 @@ const preperValidation = function ({ store, field }) {
 }
 
 const validationField = '@@'
+const fetchedField = '@tmu_fetch'
 /**
  * factory.store combines store.mapStoreMutations and store.mapStoreCollections.
  * @param {Object} param - the page properties (`created`, `computed`, `etc`)
@@ -243,7 +268,13 @@ const store = function ({ options, initialize, ...store }) {
     complexTypes = mapStoreComplexTypes(options.complexTypes)
   }
 
-  preperValidation({ store, field: validationField })
+  preperValidation({
+    store,
+    fields: {
+      [validationField]: 0,
+      [fetchedField]: false
+    }
+  })
   store.namespaced = true
   store.state = merge({ name: 'state', model, collections, complexTypes,  user: store.state })
   store.mutations = merge({ name: 'mutations', model, collections, complexTypes, user: store.mutations }) || {}
@@ -285,8 +316,23 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
     }
   }
 
+  const getFetched = function ({ store }) {
+    let fetched = store.state[moduleName] && store.state[moduleName][fetchedField]
+    if (!fetched) {
+      fetched = {}
+      fetched.chain = new Promise(resolve => {
+        fetched.resolve = resolve
+      })
+      fetched.timeout = setTimeout(() => {
+        store.commit(`${moduleName}/${fetchedField}`, false)
+        fetched.resolve()
+      }, 150)
+      store.commit(`${moduleName}/${fetchedField}`, fetched)
+    }
+    return fetched
+  }
+
   if (storeModule) {
-    let initialize
     page.preFetch = function (context) {
       let self = this
       let { store, currentRoute, previousRoute, redirect } = context
@@ -297,7 +343,12 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
         }
       })
       store.registerModule(moduleName, storeModule)
-      return store.dispatch(`${moduleName}/initialize`, {
+
+      let fetched = store.state[moduleName][fetchedField]
+      if (fetched.timeout) {
+        clearTimeout(fetched.timeout)
+      }
+      store.dispatch(`${moduleName}/initialize`, {
         route: currentRoute,
         from: previousRoute,
         next: redirect
@@ -305,33 +356,60 @@ const page = function ({ options, storeModule, moduleName, ...page }) {
         if (preFetch) {
           return preFetch.apply(self, [ context ])
         }
+      }).then(function () {
+        if (fetched.resolve) {
+          fetched.resolve()
+        }
+        store.commit(`${moduleName}/${fetchedField}`, true)
       })
     }
   
     page.created = function () {
       let self = this
-      checkModule({
-        store: this.$store,
-        failure () {
-          self.$store.registerModule(moduleName, storeModule, { preserveState: alreadyInitialized })
+      fetched = getFetched({ store: this.$store })
+      let exec = function () {
+        let fetched = this.$store.state[moduleName][fetchedField]
+        checkModule({
+          store: this.$store,
+          failure () {
+            self.$store.registerModule(moduleName, storeModule, { preserveState: fetched })
+          }
+        })
+        if (created) {
+          created.apply(self, [])
         }
-      })
-      if (created) {
-        created.apply(self, [])
+      }
+      if (fetched.chain) {
+        fetched.chain.then(exec)
+      } else {
+        exec()
       }
     }
 
     page.mounted = function () {
-      let alreadyInitialized  = !!this.$store.state[moduleName]
-      if (!alreadyInitialized) {
-        const args = this.$route ? {
-          route: this.$route,
-          next: this.$router.replace.bind(this.$router)
-        } : undefined
-        this.$store.dispatch(`${moduleName}/initialize`, args)
+      let self = this
+      fetched = getFetched({ store: this.$store })
+      let exec = function () {
+        let fetched = self.$store.state[moduleName][fetchedField]
+        if (!fetched) {
+          const args = self.$route ? {
+            route: self.$route,
+            next: self.$router.replace.bind(self.$router)
+          } : undefined
+  
+          self.$store.dispatch(`${moduleName}/initialize`, args)
+        } else {
+          self.$store.commit(`${moduleName}/${fetchedField}`, false)
+        }
+        if (mounted) {
+          mounted.apply(self, [])
+        }
       }
-      if (mounted) {
-        mounted.apply(self, [])
+
+      if (fetched.chain) {
+        fetched.chain.then(exec)
+      } else {
+        exec()
       }
     }
   

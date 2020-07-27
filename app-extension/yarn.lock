@@ -2,7 +2,7 @@
 # yarn lockfile v1
 
 
-"@toby.mosque/utils@^1.0.0-beta.12":
-  version "1.0.0-beta.12"
-  resolved "https://registry.yarnpkg.com/@toby.mosque/utils/-/utils-1.0.0-beta.12.tgz#2d70e232bef9b73c0c71e2d3f83ad5f2455cc502"
-  integrity sha512-bMjF7gWMaqHLCdcgu36ZwV5NOH3NTe1iMnCXXnFGom0nOxmVoo7EDTHZkNrcmAX21apwrIufQ4w5c0h2SYlEjg==
+"@toby.mosque/utils@^1.0.2-beta.1":
+  version "1.0.2-beta.1"
+  resolved "https://registry.yarnpkg.com/@toby.mosque/utils/-/utils-1.0.2-beta.1.tgz#71bfffab9465bf7029a93caf88d8e25844671248"
+  integrity sha512-WZZDmXcTKtbL1CtD0jhEAZHx1N1dh24ksX9rVEwJFSaucfXnuMiOPfpdm5SqI/jKPjEwa8Uoxq7NTPn37VYZyQ==
